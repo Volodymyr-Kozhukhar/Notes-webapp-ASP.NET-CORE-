@@ -1,5 +1,6 @@
 using Notes_webapp__ASP.NET_CORE_.Dtos;
-using System.Data;
+
+const int PageSizeConst = 10;
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
@@ -7,15 +8,31 @@ var app = builder.Build();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-NoteListItemDto item1 = new NoteListItemDto(1, "Frist note", DateTime.Now);
-NoteListItemDto item2 = new NoteListItemDto(2, "Second note", DateTime.Now, true);
-NoteListResponseDto itemsList = new NoteListResponseDto();
-itemsList.Items.Add(item1);
-itemsList.Items.Add(item2);
-itemsList.Total = itemsList.Items.Count;
-itemsList.PageSize = 10;
-itemsList.Page = 1;
+List<NoteListItemDto> listOfNotes = new List<NoteListItemDto>();
+int nextId = 1;
 
-app.MapGet("/api/notes", () => itemsList);
+app.MapPost("/api/notes", (NoteCreateDto dto) =>
+{
+    if (string.IsNullOrWhiteSpace(dto.Title))
+        return Results.BadRequest("Title is required");
+
+    NoteListItemDto newNote = new NoteListItemDto(nextId, dto.Title, DateTime.Now);
+    listOfNotes.Add(newNote);
+
+    nextId++;
+    return Results.Ok(newNote);
+});
+
+
+
+app.MapGet("/api/notes", () => {
+    NoteListResponseDto responceObject = new NoteListResponseDto();
+    responceObject.Items = listOfNotes;
+    responceObject.Total = listOfNotes.Count;
+    responceObject.PageSize = PageSizeConst;
+    responceObject.Page = 1;
+
+    return responceObject;
+});
 
 app.Run();

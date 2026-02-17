@@ -7,14 +7,27 @@
 </head>
 <body>
     <h1>StudyNotes</h1>
-    <p>
-        <button id="notesBtn">Show Notes</button>
-        <div id="notesResult"></div>
-    </p>
+    
+    <div id="notes"></div>
 
-    <p>
-        <div id="notes"></div>
-    </p>
+    <div>
+        <form id="addForm">
+            <label for="titleInput">New note:</label>
+
+            <input id="titleInput"
+                   type="text"
+                   required
+                   size="14" />
+
+            <div>
+                <label for="tagInput">Tag (optional):</label>
+                <input id="tagInput" type="text" size="14" />
+            </div>
+
+            <button type="submit">Add note</button>
+            <div id="addError"></div>
+        </form>
+    </div>
 
     <script src="app.js"></script>
 </body>
