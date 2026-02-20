@@ -1,4 +1,5 @@
 using Notes_webapp__ASP.NET_CORE_.Dtos;
+using System.Linq;
 
 const int PageSizeConst = 10;
 
@@ -11,20 +12,7 @@ app.UseStaticFiles();
 List<NoteListItemDto> listOfNotes = new List<NoteListItemDto>();
 int nextId = 1;
 
-app.MapPost("/api/notes", (NoteCreateDto dto) =>
-{
-    if (string.IsNullOrWhiteSpace(dto.Title))
-        return Results.BadRequest("Title is required");
-
-    NoteListItemDto newNote = new NoteListItemDto(nextId, dto.Title, DateTime.Now);
-    listOfNotes.Add(newNote);
-
-    nextId++;
-    return Results.Ok(newNote);
-});
-
-
-
+//GET metods
 app.MapGet("/api/notes", () => {
     NoteListResponseDto responceObject = new NoteListResponseDto();
     responceObject.Items = listOfNotes;
@@ -33,6 +21,31 @@ app.MapGet("/api/notes", () => {
     responceObject.Page = 1;
 
     return responceObject;
+});
+
+//POST methods
+app.MapPost("/api/notes", (NoteCreateDto dto) =>
+{
+    if (string.IsNullOrWhiteSpace(dto.Title))
+        return Results.BadRequest("Title is required");
+
+    NoteListItemDto newNote = new NoteListItemDto(nextId, dto.Title.Trim(), DateTime.Now);
+    listOfNotes.Add(newNote);
+
+    nextId++;
+    return Results.Created($"/api/notes/{newNote.Id}", newNote);
+});
+
+//DELETE methods
+app.MapDelete("/api/notes/{id}", (int id) =>
+{
+    NoteListItemDto? tmp = listOfNotes.FirstOrDefault(n => n.Id == id);
+    if (tmp == null)
+    {
+        return Results.NotFound();
+    }
+    listOfNotes.Remove(tmp);
+    return Results.NoContent();
 });
 
 app.Run();

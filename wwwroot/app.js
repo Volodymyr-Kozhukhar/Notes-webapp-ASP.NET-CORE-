@@ -5,16 +5,10 @@ const tagInput = document.getElementById("tagInput");
 
 const errorField = document.getElementById("addError");
 
-async function loadNotes(){
-    const response = await fetch("/api/notes");
+window.addEventListener('load', async () => {
+    await loadNotes();
+});
 
-    const data = await response.json();
-    const items = data.items;
-
-
-    notesTitles.innerHTML = "";
-    for (let item of items) { notesTitles.innerHTML += item.title + "<br>" }
-}
 
 addForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -40,11 +34,56 @@ addForm.addEventListener("submit", async (e) => {
     });
 
     if (!response.ok) {
-        errorField.textContent = response.statusText;
+        const msg = await response.text();
+        errorField.textContent = msg || response.statusText;
         return;
     }
 
+    const created = await response.json();
+
     titleInput.value = "";
     tagInput.value = "";
-    await loadNotes();
+    createNote(created);
 });
+
+async function loadNotes() {
+    const response = await fetch("/api/notes");
+
+    const data = await response.json();
+    const items = data.items;
+
+    renderNotes(items);
+}
+
+function renderNotes(items) {
+    notesTitles.innerHTML = "";
+    for (item of items) {
+        createNote(item);
+    }
+}
+
+function createNote(item) {
+
+    var divElement = document.createElement("div");
+
+    var spanElement = document.createElement("span");
+    spanElement.textContent = item.title;
+
+    var bttn = document.createElement("button");
+    bttn.id = item.id;
+    bttn.textContent = "Delete"
+
+    divElement.appendChild(spanElement);
+    divElement.appendChild(bttn);
+
+    notesTitles.appendChild(divElement);
+
+    bttn.addEventListener("click", async () => {
+        const response = await fetch("/api/notes/" + item.id, { method: "DELETE" })
+        if (!response.ok)
+        {
+            return;
+        }
+        divElement.remove();
+    });
+}
