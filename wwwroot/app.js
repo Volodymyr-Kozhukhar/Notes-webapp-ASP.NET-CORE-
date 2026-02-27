@@ -2,8 +2,12 @@
 const notesTitles = document.getElementById("notes");
 const titleInput = document.getElementById("titleInput");
 const tagInput = document.getElementById("tagInput");
+const contentInput = document.getElementById("contentInput");
+const submitBtn = addForm.querySelector('button[type="submit"]');
 
 const errorField = document.getElementById("addError");
+
+let editingId = null;
 
 window.addEventListener('load', async () => {
     await loadNotes();
@@ -17,21 +21,36 @@ addForm.addEventListener("submit", async (e) => {
 
     const title = titleInput.value
     const tag = tagInput.value
+    const content = contentInput.value
 
-    if (!title.trim()) {
-        errorField.textContent = "Title is required";
+    if (!title.trim() || !content.trim()) {
+        errorField.textContent = "Title and content are required";
         return;
     }
 
-    const noteObject = { title: title, tag: tag };
+    const noteObject = { title: title, content: content, tag: tag };
+    let response;
 
-    const response = await fetch("/api/notes", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(noteObject)
-    });
+    let isEditing = editingId !== null;
+
+
+    if (!isEditing) {
+        response = await fetch("/api/notes", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(noteObject)
+        });
+    } else {
+        response = await fetch("/api/notes/" + editingId, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(noteObject)
+        });
+    }
 
     if (!response.ok) {
         const msg = await response.text();
@@ -39,11 +58,25 @@ addForm.addEventListener("submit", async (e) => {
         return;
     }
 
-    const created = await response.json();
+    const result = await response.json();
 
     titleInput.value = "";
     tagInput.value = "";
-    createNote(created);
+    contentInput.value = "";
+    if (isEditing) {
+        const noteDiv = document.getElementById("note-" + editingId);
+        if (!noteDiv) return;
+
+        noteDiv.querySelector(".note-title").textContent = result.title;
+        noteDiv.querySelector(".note-content").textContent = result.content;
+
+        editingId = null;
+        submitBtn.textContent = "Add note";
+
+    }
+    else {
+        createNote(result);
+    }
 });
 
 async function loadNotes() {
@@ -65,25 +98,47 @@ function renderNotes(items) {
 function createNote(item) {
 
     var divElement = document.createElement("div");
+    divElement.className = "note";
+    divElement.id = "note-" + item.id;
 
-    var spanElement = document.createElement("span");
-    spanElement.textContent = item.title;
+    var divElementTitle = document.createElement("div");
+    divElementTitle.textContent = item.title;
+    divElementTitle.className = "note-title";
 
-    var bttn = document.createElement("button");
-    bttn.id = item.id;
-    bttn.textContent = "Delete"
+    var divElementContent = document.createElement("div");
+    divElementContent.textContent = item.content;
+    divElementContent.className = "note-content";
 
-    divElement.appendChild(spanElement);
-    divElement.appendChild(bttn);
+    var deleteBttn = document.createElement("button");
+    deleteBttn.id = item.id;
+    deleteBttn.textContent = "Delete"
+
+    var editBttn = document.createElement("button");
+    editBttn.id = item.id;
+    editBttn.textContent = "Edit"
+
+    divElement.appendChild(divElementTitle);
+    divElement.appendChild(divElementContent);
+    divElement.appendChild(deleteBttn);
+    divElement.appendChild(editBttn);
 
     notesTitles.appendChild(divElement);
 
-    bttn.addEventListener("click", async () => {
+    deleteBttn.addEventListener("click", async () => {
         const response = await fetch("/api/notes/" + item.id, { method: "DELETE" })
         if (!response.ok)
         {
             return;
         }
         divElement.remove();
+    });
+
+    editBttn.addEventListener("click", async () => {
+        editingId = item.id;
+        titleInput.value = item.title;
+        contentInput.value = item.content;
+        tagInput.value = item.tag ?? "";
+        submitBtn.textContent = "Save";
+        titleInput.focus();
     });
 }
