@@ -1,8 +1,14 @@
+using Microsoft.EntityFrameworkCore;
+using Notes_webapp__ASP.NET_CORE_.Data;
 using Notes_webapp__ASP.NET_CORE_.Dtos;
 
 const int PageSizeConst = 10;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<NotesDbContext>(options =>
+    options.UseSqlite("Data Source=notes.db"));
+
 var app = builder.Build();
 
 app.UseDefaultFiles();
