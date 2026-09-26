@@ -1,144 +1,132 @@
-﻿const addForm = document.getElementById("addForm");
-const notesTitles = document.getElementById("notes");
+const addForm = document.getElementById("addForm");
+const notesList = document.getElementById("notes");
 const titleInput = document.getElementById("titleInput");
 const tagInput = document.getElementById("tagInput");
 const contentInput = document.getElementById("contentInput");
 const submitBtn = addForm.querySelector('button[type="submit"]');
-
+const cancelBtn = document.getElementById("cancelEdit");
+const reloadBtn = document.getElementById("reloadNotes");
 const errorField = document.getElementById("addError");
-
+const statusField = document.getElementById("notesStatus");
 let editingId = null;
+let busy = false;
 
-window.addEventListener('load', async () => {
-    await loadNotes();
-});
-
-
-addForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    errorField.textContent = "";
-
-    const title = titleInput.value
-    const tag = tagInput.value
-    const content = contentInput.value
-
-    if (!title.trim() || !content.trim()) {
-        errorField.textContent = "Title and content are required";
-        return;
+function setBusy(value) {
+    busy = value;
+    for (const control of document.querySelectorAll("button, input, textarea")) {
+        control.disabled = value;
     }
+}
 
-    const noteObject = { title: title, content: content, tag: tag };
+function resetForm() {
+    addForm.reset();
+    editingId = null;
+    submitBtn.textContent = "Add note";
+    cancelBtn.hidden = true;
+}
+
+async function request(url, options) {
     let response;
-
-    let isEditing = editingId !== null;
-
-
-    if (!isEditing) {
-        response = await fetch("/api/notes", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(noteObject)
-        });
-    } else {
-        response = await fetch("/api/notes/" + editingId, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(noteObject)
-        });
+    try {
+        response = await fetch(url, options);
+    } catch {
+        throw new Error("Cannot reach the server. Check your connection and try again.");
     }
-
     if (!response.ok) {
-        const msg = await response.text();
-        errorField.textContent = msg || response.statusText;
-        return;
+        if (response.status === 400) throw new Error("Check the required fields and their maximum lengths.");
+        if (response.status === 404) throw new Error("This note no longer exists. Reload the notes.");
+        throw new Error("Unable to complete the request. Please try again.");
     }
+    return response.status === 204 ? null : response.json();
+}
 
-    const result = await response.json();
-
-    titleInput.value = "";
-    tagInput.value = "";
-    contentInput.value = "";
-    if (isEditing) {
-        const noteDiv = document.getElementById("note-" + editingId);
-        if (!noteDiv) return;
-
-        noteDiv.querySelector(".note-title").textContent = result.title;
-        noteDiv.querySelector(".note-content").textContent = result.content;
-
-        editingId = null;
-        submitBtn.textContent = "Add note";
-
+async function runAction(action) {
+    if (busy) return;
+    errorField.textContent = "";
+    setBusy(true);
+    try {
+        await action();
+    } catch (error) {
+        errorField.textContent = error instanceof Error ? error.message : "An unexpected error occurred.";
+    } finally {
+        setBusy(false);
     }
-    else {
-        createNote(result);
-    }
-});
+}
 
 async function loadNotes() {
-    const response = await fetch("/api/notes");
-
-    const data = await response.json();
-    const items = data.items;
-
-    renderNotes(items);
-}
-
-function renderNotes(items) {
-    notesTitles.innerHTML = "";
-    for (item of items) {
-        createNote(item);
+    statusField.textContent = "Loading notes…";
+    try {
+        const data = await request("/api/notes");
+        notesList.replaceChildren();
+        for (const item of data.items) createNote(item);
+        updateStatus();
+    } catch (error) {
+        statusField.textContent = "Could not refresh notes. Use Reload notes to try again.";
+        throw error;
     }
 }
 
-function createNote(item) {
+function updateStatus() {
+    statusField.textContent = notesList.children.length === 0 ? "No notes yet. Add your first note below." : "";
+}
 
-    var divElement = document.createElement("div");
-    divElement.className = "note";
-    divElement.id = "note-" + item.id;
-
-    var divElementTitle = document.createElement("div");
-    divElementTitle.textContent = item.title;
-    divElementTitle.className = "note-title";
-
-    var divElementContent = document.createElement("div");
-    divElementContent.textContent = item.content;
-    divElementContent.className = "note-content";
-
-    var deleteBttn = document.createElement("button");
-    deleteBttn.id = item.id;
-    deleteBttn.textContent = "Delete"
-
-    var editBttn = document.createElement("button");
-    editBttn.id = item.id;
-    editBttn.textContent = "Edit"
-
-    divElement.appendChild(divElementTitle);
-    divElement.appendChild(divElementContent);
-    divElement.appendChild(deleteBttn);
-    divElement.appendChild(editBttn);
-
-    notesTitles.appendChild(divElement);
-
-    deleteBttn.addEventListener("click", async () => {
-        const response = await fetch("/api/notes/" + item.id, { method: "DELETE" })
-        if (!response.ok)
-        {
-            return;
-        }
-        divElement.remove();
+addForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void runAction(async () => {
+        const note = { title: titleInput.value.trim(), content: contentInput.value.trim(), tag: tagInput.value.trim() };
+        if (!note.title || !note.content) throw new Error("Title and content are required.");
+        const result = await request(editingId === null ? "/api/notes" : `/api/notes/${editingId}`, {
+            method: editingId === null ? "POST" : "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(note)
+        });
+        const previous = editingId === null ? null : document.getElementById(`note-${editingId}`);
+        createNote(result, previous);
+        resetForm();
+        updateStatus();
     });
+});
 
-    editBttn.addEventListener("click", async () => {
+function createNote(item, previous = null) {
+    const card = document.createElement("article");
+    card.className = "note";
+    card.id = `note-${item.id}`;
+    for (const [className, text] of [["note-title", item.title], ["note-content", item.content], ["note-tag", item.tag ? `Tag: ${item.tag}` : ""]]) {
+        const field = document.createElement("div");
+        field.className = className;
+        field.textContent = text;
+        card.appendChild(field);
+    }
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.textContent = "Edit";
+    editButton.addEventListener("click", () => {
         editingId = item.id;
         titleInput.value = item.title;
         contentInput.value = item.content;
         tagInput.value = item.tag ?? "";
         submitBtn.textContent = "Save";
+        cancelBtn.hidden = false;
+        errorField.textContent = "";
         titleInput.focus();
     });
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.textContent = "Delete";
+    deleteButton.addEventListener("click", () => {
+        if (!window.confirm(`Delete "${item.title}"?`)) return;
+        void runAction(async () => {
+            await request(`/api/notes/${item.id}`, { method: "DELETE" });
+            card.remove();
+            if (editingId === item.id) resetForm();
+            updateStatus();
+        });
+    });
+    card.append(editButton, deleteButton);
+    if (previous) previous.replaceWith(card);
+    else notesList.appendChild(card);
 }
+
+cancelBtn.addEventListener("click", resetForm);
+reloadBtn.addEventListener("click", () => void runAction(loadNotes));
+void runAction(loadNotes);

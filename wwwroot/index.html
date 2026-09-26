@@ -1,40 +1,29 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
     <link rel="stylesheet" href="styles.css">
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>StudyNotes</title>
 </head>
 <body>
-    <h1>StudyNotes</h1>
-    
-    <div id="notes"></div>
-
-    <div>
+    <main>
+        <h1>StudyNotes</h1>
+        <button type="button" id="reloadNotes">Reload notes</button>
+        <p id="notesStatus" role="status"></p>
+        <div id="notes"></div>
         <form id="addForm">
-            <label for="titleInput">New note title:</label>
-
-            <input id="titleInput"
-                   type="text"
-                   required
-                   size="14" />
-
-            <div>
-                <label for="contentInput">New note content:</label>
-                <textarea id="contentInput"></textarea>
-            </div>
-
-            <div>
-                <label for="tagInput">Tag (optional):</label>
-                <input id="tagInput" type="text" size="14" />
-            </div>
-
+            <label for="titleInput">Title:</label>
+            <input id="titleInput" type="text" required maxlength="200">
+            <label for="contentInput">Content:</label>
+            <textarea id="contentInput" required maxlength="20000" rows="6"></textarea>
+            <label for="tagInput">Tag (optional):</label>
+            <input id="tagInput" type="text" maxlength="50">
             <button type="submit">Add note</button>
-            <div id="addError"></div>
+            <button type="button" id="cancelEdit" hidden>Cancel editing</button>
+            <div id="addError" role="alert"></div>
         </form>
-    </div>
-
+    </main>
     <script src="app.js"></script>
 </body>
 </html>
